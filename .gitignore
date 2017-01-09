@@ -95,6 +95,3 @@ etc/local/
 
 # Logging
 log/
-
-# CRITs vocabulary file
-lib/crits/vocabulary/
