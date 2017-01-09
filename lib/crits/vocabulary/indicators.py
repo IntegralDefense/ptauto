@@ -1,6 +1,4 @@
-from crits.vocabulary.vocab import vocab
-
-class IndicatorTypes(vocab):
+class IndicatorTypes():
     """
     Vocabulary for Indicator Types.
     """
@@ -117,7 +115,7 @@ class IndicatorTypes(vocab):
     XPI = "XPI"
 
 
-class IndicatorThreatTypes(vocab):
+class IndicatorThreatTypes():
     """
     Vocabulary for Indicator Threat Types.
     """
@@ -147,7 +145,7 @@ class IndicatorThreatTypes(vocab):
     WHITELIST_URL = "Whitelist URL"
 
 
-class IndicatorAttackTypes(vocab):
+class IndicatorAttackTypes():
     """
     Vocabulary for Indicator Attack Types.
     """
@@ -168,7 +166,7 @@ class IndicatorAttackTypes(vocab):
     UNKNOWN = "Unknown"
 
 
-class IndicatorCI(vocab):
+class IndicatorCI():
     """
     Vocabulary for Indicator CI.
     """
