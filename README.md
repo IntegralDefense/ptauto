@@ -68,7 +68,7 @@ itsfreezinghere.net      loltest@gmail.com   icecube ltd        2014-07-11      
 Searching the email address returns several other domains registered by the same email address. 
 
 ### --crits flag
-The --crits flag automatically uploads resulting data to CRITs and relates it properly. In the case above, nism2020@yandex.com would be uploaded as a WHOIS indicator, and the resulting domains would be uploaded as domain indicators. Relationships would then be created between the domains and the WHOIS indicator. If the WHOIS indicator is already found in CRITs, some additional information will be added to the new domains, such as campaigns and confidence/impact.
+The --crits flag automatically uploads resulting data to CRITs and relates it properly. In the case above, loltest[@]gmail.com would be uploaded as a WHOIS indicator, and the resulting domains would be uploaded as domain indicators. Relationships would then be created between the domains and the WHOIS indicator. If the WHOIS indicator is already found in CRITs, some additional information will be added to the new domains, such as campaigns and confidence/impact.
 
 ### --dev flag
 If you have two separate instances of CRITs, a dev and a prod, this will use the dev version (that you specify in the pt.ini file).
