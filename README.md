@@ -11,9 +11,7 @@ Configuration
 3. Also if using CRITs, copy your crits/crits/vocabulary/indicators.py file to lib/crits/vocabulary.
 
 ## Dependencies
-* sqlalchemy
-* requests
-* configparser
+See requirements.txt
 
 ## CRITs requirements
 The CRITs project can be found here: https://github.com/crits/crits/
