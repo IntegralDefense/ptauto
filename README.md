@@ -34,6 +34,24 @@ In the future, there might be additional functionality for adding an Action or b
 ### CRITs Vocabulary
 The default stable_4 vocabulary file is included. If you have modified your CRITs installation, you must copy your crits/vocabulary/indicators.py file to lib/crits/vocabulary/ (as mentioned in the configuraiton section). This file is added in the .gitignore, so you'll need to update it if something relevant changes in the main CRITs branch.
 
+When adding your own indicators.py vocabulary file, you'll need to remove the import reference at the top.
+
+```
+from crits.vocabulary.vocab import vocab
+```
+
+and also remove the class inheritance of vocab:
+
+```
+class IndicatorTypes(vocab):
+```
+
+becomes:
+
+```
+class IndicatorTypes():
+```
+
 ## Logging
 By default, we have set logging to print debug messages. Edit etc/local/logging.ini to change this. To change just the console output, modify the level=DEBUG under handler_console.
 
