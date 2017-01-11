@@ -1,6 +1,9 @@
 import json
 import logging
+import os
 import requests
+
+from lib.pt.common.constants import PT_HOME
 
 from requests.auth import HTTPBasicAuth
 
@@ -47,7 +50,8 @@ class PTAPI():
         """
         Returns test results not using the PT API
         """
-        with open('lib/pt/test/{}.test'.format(field)) as fp:
+        with open(os.path.join(PT_HOME, 'lib', 'pt', 'test',
+                               '{}.test'.format(field))) as fp:
             data = fp.read()
         results = json.loads(data)
         return results

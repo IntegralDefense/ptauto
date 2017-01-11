@@ -12,6 +12,7 @@ import uuid
 
 from lib.critsapi.critsapi import CRITsAPI
 from lib.pt.common.config import Config
+from lib.pt.common.constants import PT_HOME
 from lib.pt.core.database import Database
 from lib.pt.ptapi import PTAPI
 from lib.crits.vocabulary.indicators import IndicatorTypes as it
@@ -20,7 +21,7 @@ from pymongo import MongoClient
 from configparser import ConfigParser
 
 # Check configuration directory
-local_config_dir = os.path.join('etc', 'local')
+local_config_dir = os.path.join(PT_HOME, 'etc', 'local')
 if not os.path.exists(local_config_dir):
     os.makedirs(local_config_dir)
     sys.exit('No etc/local/ directory. See README to create.')
@@ -35,7 +36,7 @@ if config.core.cache_enabled:
         os.makedirs(config.core.cache_dir)
 
 # Initialize loggin
-log_path = os.path.join('etc', 'local', 'logging.ini')
+log_path = os.path.join(PT_HOME, 'etc', 'local', 'logging.ini')
 try:
     logging.config.fileConfig(log_path)
 except Exception as e:
