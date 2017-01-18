@@ -20,6 +20,8 @@ from operator import itemgetter
 from pymongo import MongoClient
 from configparser import ConfigParser
 
+log = logging.getLogger()
+
 # Check configuration directory
 local_config_dir = os.path.join(PT_HOME, 'etc', 'local')
 if not os.path.exists(local_config_dir):
@@ -43,11 +45,6 @@ except Exception as e:
     sys.exit('unable to load logging configuration file {}: '
              '{}'.format(log_path, str(e)))
 
-log = logging.getLogger()
-
-email_address_pattern = re.compile('([a-zA-Z][_a-zA-Z0-9-.]+@[a-z0-9-]+(?:\.[a-z]+)+)')
-phone_pattern = re.compile('^[0-9]{9,15}$')
-
 pt = PTAPI(username=config.core.pt_username, apikey=config.core.pt_apikey)
 pt.set_proxy(http=config.proxy.http, https=config.proxy.https)
 
@@ -64,7 +61,21 @@ argparser.add_argument('--test', dest='test', action='store_true',
 argparser.add_argument('-f', dest='force', action='store_true', default=False,
                        help='Force a new API query (do not used cached '
                        'results.')
+# Add our mutually exclusive items
+meg = argparser.add_mutually_exclusive_group()
+meg.add_argument('-n', dest='name', action='store_true', default=False,
+                       help='The query is a name and pt_query will not try to '
+                       'determine the type automatically.')
+meg.add_argument('-a', dest='address', action='store_true', default=False,
+                       help='The query is an address and pt_query will not '
+                       'try to determine the type automatically.')
 args = argparser.parse_args()
+
+# Patterns for determining which type of lookup to do
+# Some items cannot be differentiated via regex (name vs address), so we use
+# a flag to specify these
+email_address_pattern = re.compile('([a-zA-Z][_a-zA-Z0-9-.]+@[a-z0-9-]+(?:\.[a-z]+)+)')
+phone_pattern = re.compile('^[0-9]{9,15}$')
 
 database = None
 if config.core.cache_enabled:
@@ -139,8 +150,30 @@ if database and not args.force and config.core.cache_enabled:
         with open(cache_file) as fp:
             results = json.loads(fp.read())
 
-if re.match(email_address_pattern, query):
-    # Store in config.core.cache_dir
+if args.name or args.address:
+    if args.name:
+        field_str = 'name'
+    if args.address:
+        field_str = 'address'
+    if args.test:
+        results = pt.get_test_results(field=field_str)
+    else:
+        results = pt.whois_search(query=query, field=field_str)
+
+    if database and not cache_file and config.core.cache_enabled:
+        filepath = os.path.join(config.core.cache_dir, str(uuid.uuid4()))
+        log.debug('Filepath is {}'.format(filepath))
+        database.add_results_to_cache(query, user, results, filepath)
+
+    base_reference = 'https://www.passivetotal.org/search/whois/'\
+                     '{}'.format(field_str)
+    # Use our config defined indicator type of whois email objects
+    if args.name:
+        crits_indicator_type = it.WHOIS_NAME
+    if args.address:
+        crits_indicator_type = it.WHOIS_ADDR1
+
+elif re.match(email_address_pattern, query):
     if args.test:
         results = pt.get_test_results(field='email')
     else:
