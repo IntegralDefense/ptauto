@@ -129,6 +129,16 @@ class CRITsAPI():
                       '{3}'.format(r.status_code, r.text, left_id, right_id))
             return False
 
+    def add_campaign_to_object(self, id, type, campaign, confidence, analyst,
+                               date, description):
+        # TODO: Make sure the object does not already have the campaign
+        # Return if it does. Add it if it doesn't
+        obj = getattr(self.db, type)
+        result = obj.find( { '_id' : id, 'campaign.name' : campaign } )
+        if result:
+            import pdb
+            pdb.set_trace()
+
     def _type_translation(self, str_type):
         if str_type == 'Indicator':
             return 'indicators'
