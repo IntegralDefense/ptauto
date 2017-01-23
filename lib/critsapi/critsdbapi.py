@@ -28,6 +28,11 @@ class CRITsDBAPI():
         result = obj.find( query )
         return result
 
+    def find_one(self, collection, query):
+        obj = getattr(self.db, collection)
+        result = obj.find_one( query )
+        return result
+
     def add_embedded_campaign(self, id, collection, campaign, confidence, analyst,
                                date, description):
         if type(id) is not ObjectId:

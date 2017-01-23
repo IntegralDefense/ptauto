@@ -215,7 +215,6 @@ else:
 if args.crits:
     found = False
     # Search for it with raw mongo because API is slow
-    #crits_result = db.indicators.find( { 'value' : query, 'type' : crits_indicator_type } )
     crits_result = crits_mongo.find( 'indicators',
                                     { 'value' : query, 'type' : crits_indicator_type } )
     if crits_result.count() > 0:
@@ -236,12 +235,21 @@ if args.crits:
             description = 'Queried with pt_query.py',
         )
 
+    # This is pretty hacky - Since we use both the raw DB and the API, we might
+    # receive either an '_id' or an 'id' back. For now I'm just replicating
+    # the value. TODO: Find a better fix?
     if 'id' not in indicator:
         if not '_id' in indicator:
-            raise SystemExit('Bad indicator object from CRITs for value '
+            raise SystemExit('id and _id not found for query: '
                              '{}'.format(query))
         else:
             indicator['id'] = indicator['_id']
+    if '_id' not in indicator:
+        if not 'id' in indicator:
+            raise SystemExit('id and _id not found for query: '
+                             '{}'.format(query))
+        else:
+            indicator['_id'] = indicator['id']
 
 # Iterate through all results and print/add to CRITs (if args provided)
 formatted_results = []
@@ -295,22 +303,24 @@ for result in results['results']:
         formatted_results.append(row)
         # TODO: Tags. They appear to be an extra API query which is annoying
 
-        email_reference = '{0}/{1}'.format(base_reference, query)
+        reference = '{0}/{1}'.format(base_reference, query)
 
         if args.crits:
             # Let's try getting the confidence and impact from the parent whois
             # indicator
-            confidence = 'medium'
-            impact = 'medium'
+            confidence = 'low'
+            impact = 'low'
             if 'confidence' in indicator:
-                confidence = indicator['confidence']['rating']
+                if 'rating' in indicator['confidence']:
+                    confidence = indicator['confidence']['rating']
             if 'impact' in indicator:
-                impact = indicator['impact']['rating']
-            # If not in CRITs, add it.
+                if 'rating' in indicator['impact']:
+                    impact = indicator['impact']['rating']
+            # If not in CRITs, add all the associated indicators
             new_ind = crits.add_indicator(
                 source = config.crits.default_source,
-                reference = email_reference,
-                method = 'pt.py',
+                reference = reference,
+                method = 'pt_query.py',
                 bucket_list = 'whois pivoting,pt:found',
                 indicator_confidence = confidence,
                 indicator_impact = impact,
@@ -344,8 +354,64 @@ for result in results['results']:
                                          new_ind['id'], 'Indicator',
                                          rel_type='Registered')
 
-            # Now we can add indicators for all the other WHOIS information
-            # for the domain we found
+            # Now we can add the rest of the WHOIS indicators (if necessary)
+            for ind in crits_indicators_to_add:
+                # If the indicator exists, just get the id and use it to build
+                # relationships. We will look for one with the same source.
+                # If not in CRITs, add it and relate it.
+                whois_indicator = crits_mongo.find_one('indicators',
+                                                   {
+                                                       'value' : ind['value'],
+                                                       'type' : ind['type'],
+                                                       'source.name' :
+                                                       config.crits.default_source,
+                                                   })
+                if not whois_indicator:
+                    whois_indicator = crits.add_indicator(
+                        source = config.crits.default_source,
+                        reference = reference,
+                        method = 'pt_query.py',
+                        bucket_list = 'whois pivoting,pt:found',
+                        indicator_confidence = confidence,
+                        indicator_impact = impact,
+                        type = ind['type'],
+                        value = ind['value'],
+                        description = 'Discovered through PT whois pivots'
+                    )
+
+                # This is pretty hacky - Since we use both the raw DB and the API, we might
+                # receive either an '_id' or an 'id' back. For now I'm just replicating
+                # the value. TODO: Find a better fix?
+                if 'id' not in whois_indicator:
+                    whois_indicator['id'] = whois_indicator['_id']
+                if '_id' not in whois_indicator:
+                    whois_indicator['_id'] = whois_indicator['id']
+
+                # The CRITs API allows us to add a campaign to the indicator, but
+                # not multiple campaigns at one time,
+                # so we will do it directly with the DB.
+                # We want to replicate the campaigns of the WHOIS indicator (if
+                # a campaign exists) to the new indicator.
+                # Continue with the same campaign
+                if 'campaign' in indicator:
+                    for campaign in indicator['campaign']:
+                        crits_mongo.add_embedded_campaign(
+                            whois_indicator['id'],
+                            'indicators',
+                            campaign['name'],
+                            campaign['confidence'],
+                            campaign['analyst'],
+                            datetime.datetime.now(),
+                            campaign['description']
+                        )
+
+                # If the new indicator and the indicator are not related, relate them.
+                if not crits.has_relationship(whois_indicator['_id'], 'Indicator',
+                                              new_ind['id'], 'Indicator',
+                                              rel_type='Registered'):
+                    crits.forge_relationship(whois_indicator['_id'], 'Indicator',
+                                             new_ind['id'], 'Indicator',
+                                             rel_type='Registered')
 
 # Add a bucket_list item to track that we searched for this whois indicator
 if args.crits:
