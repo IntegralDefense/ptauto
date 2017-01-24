@@ -58,17 +58,21 @@ Usage
 ## pt_query.py
 pt_query.py is simple to use.
 ```
-usage: pt_query.py [-h] [--dev] [--crits] [--test] [-f] QUERY
+usage: pt_query.py [-h] [--dev] [--crits] [--test] [-f] [-n | -a] QUERY
 
 positional arguments:
   QUERY       A value to send as a query to PT. Email, phone, name, etc.
 
 optional arguments:
   -h, --help  show this help message and exit
-  --dev       Use a development instance of CRITs (if using)
+  --dev
   --crits     Write the results to CRITs with appropriate relationships.
   --test      Run with test data. (Save PT queries)
-  -f          Force a new API query (do not used cached results)
+  -f          Force a new API query (do not used cached results.
+  -n          The query is a name and pt_query will not try to determine the
+              type automatically.
+  -a          The query is an address and pt_query will not try to determine
+              the type automatically.
 ```
 
 As an example, let's take an email address: (All the resulting data is faked so we don't break any licensing agreements with PT)
@@ -82,6 +86,12 @@ itsfreezinghere.net      loltest@gmail.com   icecube ltd        2014-07-11      
 ```
 
 Searching the email address returns several other domains registered by the same email address. 
+
+### -a flag
+Searches PT for the query as an address in the WHOIS information.
+
+### -n flag
+Searches PT for the query as a registrant name in the WHOIS information.
 
 ### --crits flag
 The --crits flag automatically uploads resulting data to CRITs and relates it properly. In the case above, loltest[@]gmail.com would be uploaded as a WHOIS indicator, and the resulting domains would be uploaded as domain indicators. Relationships would then be created between the domains and the WHOIS indicator. If the WHOIS indicator is already found in CRITs, some additional information will be added to the new domains, such as campaigns and confidence/impact.
