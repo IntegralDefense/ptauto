@@ -130,7 +130,8 @@ if args.crits:
         api_url=crits_url,
         api_key=crits_api_key,
         username=crits_username,
-        proxies=crits_proxy
+        proxies=crits_proxy,
+        verify=config.crits.crits_verify
     )
 
 query = args.QUERY.rstrip()
