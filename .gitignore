@@ -95,3 +95,6 @@ etc/local/
 
 # Logging
 log/
+
+.swp
+.swo
