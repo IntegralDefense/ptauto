@@ -16,7 +16,7 @@ See requirements.txt
 ## CRITs requirements
 The CRITs project can be found here: https://github.com/crits/crits/
 
-This is intended to work with the latest version of 4_stable.
+This is intended to work with the latest version of stable_4.
 
 The CRITs API must be available. The CRITs mongo database must be available.
 
