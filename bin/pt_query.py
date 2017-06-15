@@ -62,6 +62,9 @@ argparser.add_argument('--test', dest='test', action='store_true',
 argparser.add_argument('-f', dest='force', action='store_true', default=False,
                        help='Force a new API query (do not used cached '
                        'results.')
+argparser.add_argument('-t', action='append', dest='TAGS', default=[],
+                       help='Bucket list tags for crits. Multiple -t options '
+                       'are allowed.')
 # Add our mutually exclusive items
 meg = argparser.add_mutually_exclusive_group()
 meg.add_argument('-n', dest='name', action='store_true', default=False,
@@ -224,11 +227,14 @@ if args.crits:
                 indicator = r
                 found = True
     if not found:
+        bucket_list = ['registrant', 'whois', 'pt:query']
+        for t in args.tags:
+            bucket_list.append(t)
         indicator = crits.add_indicator(
             source = config.crits.default_source,
             reference = 'Added via pt_query.py',
             method = 'pt_query.py',
-            bucket_list = 'registrant,whois,pt:query',
+            bucket_list = ','.join(bucket_list),
             indicator_confidence = 'low',
             indicator_impact = 'low',
             type = crits_indicator_type,

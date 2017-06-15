@@ -93,6 +93,9 @@ Searches PT for the query as an address in the WHOIS information.
 ### -n flag
 Searches PT for the query as a registrant name in the WHOIS information.
 
+### -t flag
+Adds a custom tag (bucket list item) to the data added to CRITs
+
 ### --crits flag
 The --crits flag automatically uploads resulting data to CRITs and relates it properly. In the case above, loltest[@]gmail.com would be uploaded as a WHOIS indicator, and the resulting domains would be uploaded as domain indicators. Relationships would then be created between the domains and the WHOIS indicator. If the WHOIS indicator is already found in CRITs, some additional information will be added to the new domains, such as campaigns and confidence/impact.
 
