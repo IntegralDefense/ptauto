@@ -1,22 +1,21 @@
 import json
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from lib.pt.common.config import Config
 
-from sqlalchemy import create_engine, Column, event
-from sqlalchemy import Integer, String, Boolean, DateTime, Numeric
-from sqlalchemy import ForeignKey, Text, Index, Table
+from sqlalchemy import create_engine, Column
+from sqlalchemy import Integer, String, DateTime
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError
-from sqlalchemy.orm import sessionmaker, relationship, joinedload, backref
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import validates
 
 Base = declarative_base()
 
-#log = logging.getLogger(__name__)
 log = logging.getLogger()
+
 
 class Cache(Base):
     __tablename__ = 'cache'
@@ -35,6 +34,7 @@ class Cache(Base):
     def validate_cache_file(self, key, value):
         assert value != ''
         return value
+
 
 class Database():
 
@@ -61,13 +61,13 @@ class Database():
         try:
             self.engine = create_engine(connection_string,
                                         connect_args={
-                                            'check_same_thread' : False
+                                            'check_same_thread': False
                                         })
         except ImportError as e:
             lib = e.message.split()[-1]
             raise ImportError("Missing database driver, unable to "
-                "import %s (install with `pip "
-                "install %s`)" % (lib, lib))
+                              "import %s (install with `pip "
+                              "install %s`)" % (lib, lib))
 
     def add_cache_file(self, created_date, modified_date, user, query,
                        cache_file):
@@ -114,7 +114,6 @@ class Database():
             log.warning('User {} tried to update the cache for query {}, but '
                         'it was not found.'.format(user, query))
             return False
-        modified_date = datetime.utcnow()
         cache_entry.user = user
         cache_entry.cache_file = cache_file
         cache_entry.modified_date = datetime.utcnow()
