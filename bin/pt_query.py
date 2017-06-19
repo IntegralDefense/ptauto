@@ -313,6 +313,7 @@ for result in results['results']:
                 }
                 crits_indicators_to_add.append(name_obj)
             if 'telephone' in result['registrant']:
+                row[3] = result['registrant']['telephone']
                 phone_obj = {
                     'value': result['registrant']['telephone'],
                     'type': it.WHOIS_TELEPHONE,
@@ -329,9 +330,9 @@ for result in results['results']:
 
         # Date the domain was registered
         if 'registered' in result:
-            row[3] = result['registered']
+            row[4] = result['registered']
         if 'expiresAt' in result:
-            row[4] = result['expiresAt']
+            row[5] = result['expiresAt']
         formatted_results.append(row)
         # TODO: Tags. They appear to be an extra API query which is annoying
 
@@ -472,8 +473,9 @@ if args.crits:
 # SORT BY DATE
 formatted_results = sorted(formatted_results, key=itemgetter(3), reverse=True)
 # Row contains:
-# Domain, Registrant Email, Registrant Name, Registrant Date,
-# Expiration Date, Tags
-headers = ['Domain', 'Registrant Email', 'Registrant Name', 'Registrant Date',
-           'Expiration Date', 'Tags']
+# Domain, Registrant Email, Registrant Name, Registrant Telephone,
+# Registrant Date, Expiration Date, Tags
+headers = ['Domain', 'Registrant Email', 'Registrant Name',
+           'Registrant Telephone', 'Registrant Date', 'Expiration Date',
+           'Tags']
 print(tabulate.tabulate(formatted_results, headers))
