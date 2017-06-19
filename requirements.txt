@@ -2,3 +2,4 @@ sqlalchemy
 requests
 configparser
 tabulate
+git+https://github.com/lolnate/critsapi.git

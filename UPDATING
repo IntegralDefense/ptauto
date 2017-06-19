@@ -1,0 +1,5 @@
+Version 0.1337
+--------------
+- Versioning added. Started with 0.1337 because why not?
+- Removed local critsapi library. Using library from https://github.com/lolnate/critsapi.git instead.
+  - Make sure you run: pip install git+https://github.com/lolnate/critsapi.git

@@ -4,15 +4,17 @@ import argparse
 import datetime
 import getpass
 import json
-import logging, logging.config
+import logging
+import logging.config
 import os
 import re
 import sys
 import tabulate
 import uuid
 
-from lib.critsapi.critsapi import CRITsAPI
-from lib.critsapi.critsdbapi import CRITsDBAPI
+from critsapi.critsapi import CRITsAPI
+from critsapi.critsdbapi import CRITsDBAPI
+
 from lib.pt.common.config import Config
 from lib.pt.common.constants import PT_HOME
 from lib.pt.core.database import Database
@@ -22,6 +24,7 @@ from operator import itemgetter
 from configparser import ConfigParser
 
 log = logging.getLogger()
+VERSION = "0.1337"
 
 # Check configuration directory
 local_config_dir = os.path.join(PT_HOME, 'etc', 'local')
@@ -62,24 +65,31 @@ argparser.add_argument('--test', dest='test', action='store_true',
 argparser.add_argument('-f', dest='force', action='store_true', default=False,
                        help='Force a new API query (do not used cached '
                        'results.')
-argparser.add_argument('-t', action='append', dest='TAGS', default=[],
+argparser.add_argument('-t', action='append', dest='tags', default=[],
                        help='Bucket list tags for crits. Multiple -t options '
                        'are allowed.')
 # Add our mutually exclusive items
 meg = argparser.add_mutually_exclusive_group()
 meg.add_argument('-n', dest='name', action='store_true', default=False,
-                       help='The query is a name and pt_query will not try to '
-                       'determine the type automatically.')
+                 help='The query is a name and pt_query will not try to '
+                 'determine the type automatically.')
 meg.add_argument('-a', dest='address', action='store_true', default=False,
-                       help='The query is an address and pt_query will not '
-                       'try to determine the type automatically.')
+                 help='The query is an address and pt_query will not '
+                 'try to determine the type automatically.')
 args = argparser.parse_args()
 
 # Patterns for determining which type of lookup to do
 # Some items cannot be differentiated via regex (name vs address), so we use
 # a flag to specify these
-email_address_pattern = re.compile('([a-zA-Z][_a-zA-Z0-9-.]+@[a-z0-9-]+(?:\.[a-z]+)+)')
-phone_pattern = re.compile('^[0-9]{9,15}$')
+# Load patterns for regexes
+pattern_config = ConfigParser()
+patterns = {}
+with open('etc/patterns.ini') as fp:
+    pattern_config.readfp(fp)
+
+email_address_pattern = re.compile(pattern_config.get('email', 'pattern'))
+phone_pattern = re.compile(pattern_config.get('phone', 'pattern'))
+domain_pattern = re.compile(pattern_config.get('domain', 'pattern'))
 
 database = None
 if config.core.cache_enabled:
@@ -122,17 +132,17 @@ if args.crits:
             characters.")
 
     crits_proxy = {
-        'http' : config.crits.crits_proxy_url,
-        'https' : config.crits.crits_proxy_url,
+        'http': config.crits.crits_proxy_url,
+        'https': config.crits.crits_proxy_url,
     }
 
     # Build our mongo connection
     if args.dev:
         crits_mongo = CRITsDBAPI(mongo_uri=config.crits.mongo_uri_dev,
-                             db_name=config.crits.database)
+                                 db_name=config.crits.database)
     else:
         crits_mongo = CRITsDBAPI(mongo_uri=config.crits.mongo_uri,
-                             db_name=config.crits.database)
+                                 db_name=config.crits.database)
     crits_mongo.connect()
     # Connect to the CRITs API
     crits = CRITsAPI(
@@ -160,6 +170,10 @@ if database and not args.force and config.core.cache_enabled:
         with open(cache_file) as fp:
             results = json.loads(fp.read())
 
+bucket_list = ['whois', 'pt:query']
+for t in args.tags:
+    bucket_list.append(t)
+
 if args.name or args.address:
     if args.name:
         field_str = 'name'
@@ -183,6 +197,8 @@ if args.name or args.address:
     if args.address:
         crits_indicator_type = it.WHOIS_ADDR1
 
+    bucket_list.append('registrant')
+
 elif re.match(email_address_pattern, query):
     if args.test:
         results = pt.get_test_results(field='email')
@@ -196,7 +212,8 @@ elif re.match(email_address_pattern, query):
 
     base_reference = 'https://www.passivetotal.org/search/whois/email'
     # Use our config defined indicator type of whois email objects
-    crits_indicator_type = getattr(it, config.crits.whois_email_type)
+    crits_indicator_type = it.WHOIS_REGISTRANT_EMAIL_ADDRESS
+    bucket_list.append('registrant')
 
 elif re.match(phone_pattern, query):
     if args.test:
@@ -211,52 +228,60 @@ elif re.match(phone_pattern, query):
 
     base_reference = 'https://www.passivetotal.org/search/whois/phone'
     crits_indicator_type = it.WHOIS_TELEPHONE
+    bucket_list.append('registrant')
+
+elif re.match(domain_pattern, query):
+    if args.test:
+        results = pt.get_test_results(field='domain')
+    else:
+        results = pt.whois_search(query=query, field='domain')
+    # Now add the results to the db if we have it
+    if database and not cache_file and config.core.cache_enabled:
+        filepath = os.path.join(config.core.cache_dir, str(uuid.uuid4()))
+        log.debug('Filepath is {}'.format(filepath))
+        database.add_results_to_cache(query, user, results, filepath)
+
+    base_reference = 'https://www.passivetotal.org/search/whois/domain'
+    crits_indicator_type = it.DOMAIN
 
 else:
     raise SystemExit("Your query didn't match a known pattern.")
 
 # Add the query to CRITs regardless of the number of results
+# TODO: Add campaigns
 if args.crits:
     found = False
     # Search for it with raw mongo because API is slow
-    crits_result = crits_mongo.find( 'indicators',
-                                    { 'value' : query, 'type' : crits_indicator_type } )
+    crits_result = crits_mongo.find('indicators', {'value': query, 'type':
+                                    crits_indicator_type})
     if crits_result.count() > 0:
         for r in crits_result:
             if r['value'] == query:
                 indicator = r
                 found = True
     if not found:
-        bucket_list = ['registrant', 'whois', 'pt:query']
-        for t in args.tags:
-            bucket_list.append(t)
         indicator = crits.add_indicator(
-            source = config.crits.default_source,
-            reference = 'Added via pt_query.py',
-            method = 'pt_query.py',
-            bucket_list = ','.join(bucket_list),
-            indicator_confidence = 'low',
-            indicator_impact = 'low',
-            type = crits_indicator_type,
-            value = query,
-            description = 'Queried with pt_query.py',
+            value=query,
+            itype=crits_indicator_type,
+            source=config.crits.default_source,
+            reference='Added via pt_query.py',
+            method='pt_query.py',
+            bucket_list=bucket_list,
+            indicator_confidence='low',
+            indicator_impact='low',
+            description='Queried with pt_query.py',
         )
 
     # This is pretty hacky - Since we use both the raw DB and the API, we might
-    # receive either an '_id' or an 'id' back. For now I'm just replicating
-    # the value. TODO: Find a better fix?
+    # receive either an '_id' or an 'id' back. We are going to standardize on
+    # 'id', rather than '_id'
     if 'id' not in indicator:
-        if not '_id' in indicator:
+        if '_id' not in indicator:
+            print(repr(indicator))
             raise SystemExit('id and _id not found for query: '
-                             '{}'.format(query))
+                             '{} in new indicator'.format(query))
         else:
             indicator['id'] = indicator['_id']
-    if '_id' not in indicator:
-        if not 'id' in indicator:
-            raise SystemExit('id and _id not found for query: '
-                             '{}'.format(query))
-        else:
-            indicator['_id'] = indicator['id']
 
 # Iterate through all results and print/add to CRITs (if args provided)
 formatted_results = []
@@ -266,7 +291,7 @@ for result in results['results']:
         # Row contains:
         # Domain, Registrant Email, Registrant Name, Registrant Date,
         # Expiration Date, Tags
-        row = [ '', '', '', '', '', '']
+        row = ['', '', '', '', '', '']
         row[0] = result['domain']
         # Email address used to register
         if 'registrant' in result:
@@ -274,33 +299,33 @@ for result in results['results']:
             if 'email' in result['registrant']:
                 row[1] = result['registrant']['email']
                 email_obj = {
-                    'value' : result['registrant']['email'],
-                    'type' : it.WHOIS_REGISTRANT_EMAIL_ADDRESS,
-                    'related_to' : result['domain']
+                    'value': result['registrant']['email'],
+                    'type': it.WHOIS_REGISTRANT_EMAIL_ADDRESS,
+                    'related_to': result['domain']
                 }
-                crits_indicators_to_add.append( email_obj )
+                crits_indicators_to_add.append(email_obj)
             if 'name' in result['registrant']:
                 row[2] = result['registrant']['name']
                 name_obj = {
-                    'value' : result['registrant']['name'],
-                    'type' : it.WHOIS_NAME,
-                    'related_to' : result['domain']
+                    'value': result['registrant']['name'],
+                    'type': it.WHOIS_NAME,
+                    'related_to': result['domain']
                 }
-                crits_indicators_to_add.append( name_obj )
+                crits_indicators_to_add.append(name_obj)
             if 'telephone' in result['registrant']:
                 phone_obj = {
-                    'value' : result['registrant']['telephone'],
-                    'type' : it.WHOIS_TELEPHONE,
-                    'related_to' : result['domain']
+                    'value': result['registrant']['telephone'],
+                    'type': it.WHOIS_TELEPHONE,
+                    'related_to': result['domain']
                 }
-                crits_indicators_to_add.append( phone_obj )
+                crits_indicators_to_add.append(phone_obj)
             if 'street' in result['registrant']:
                 addr1_obj = {
-                    'value' : result['registrant']['street'],
-                    'type' : it.WHOIS_ADDR1,
-                    'related_to' : result['domain']
+                    'value': result['registrant']['street'],
+                    'type': it.WHOIS_ADDR1,
+                    'related_to': result['domain']
                 }
-                crits_indicators_to_add.append( addr1_obj )
+                crits_indicators_to_add.append(addr1_obj)
 
         # Date the domain was registered
         if 'registered' in result:
@@ -324,16 +349,19 @@ for result in results['results']:
                 if 'rating' in indicator['impact']:
                     impact = indicator['impact']['rating']
             # If not in CRITs, add all the associated indicators
+            bucket_list = ['whois pivoting', 'pt:found']
+            for t in args.tags:
+                bucket_list.append(t)
             new_ind = crits.add_indicator(
-                source = config.crits.default_source,
-                reference = reference,
-                method = 'pt_query.py',
-                bucket_list = 'whois pivoting,pt:found',
-                indicator_confidence = confidence,
-                indicator_impact = impact,
-                type = it.DOMAIN,
-                value = result['domain'],
-                description = 'Discovered through PT whois pivots'
+                value=result['domain'],
+                itype=it.DOMAIN,
+                source=config.crits.default_source,
+                reference=reference,
+                method='pt_query.py',
+                bucket_list=bucket_list,
+                indicator_confidence=confidence,
+                indicator_impact=impact,
+                description='Discovered through PT whois pivots'
             )
 
             # The CRITs API allows us to add a campaign to the indicator, but
@@ -353,11 +381,12 @@ for result in results['results']:
                         campaign['description']
                     )
 
-            # If the new indicator and the indicator are not related, relate them.
-            if not crits.has_relationship(indicator['_id'], 'Indicator',
+            # If the new indicator and the indicator are not related,
+            # relate them.
+            if not crits.has_relationship(indicator['id'], 'Indicator',
                                           new_ind['id'], 'Indicator',
                                           rel_type='Registered'):
-                crits.forge_relationship(indicator['_id'], 'Indicator',
+                crits.forge_relationship(indicator['id'], 'Indicator',
                                          new_ind['id'], 'Indicator',
                                          rel_type='Registered')
 
@@ -366,36 +395,46 @@ for result in results['results']:
                 # If the indicator exists, just get the id and use it to build
                 # relationships. We will look for one with the same source.
                 # If not in CRITs, add it and relate it.
-                whois_indicator = crits_mongo.find_one('indicators',
-                                                   {
-                                                       'value' : ind['value'],
-                                                       'type' : ind['type'],
-                                                       'source.name' :
-                                                       config.crits.default_source,
-                                                   })
+                whois_indicator = crits_mongo.find_one(
+                    'indicators',
+                    {
+                        'value': ind['value'],
+                        'type': ind['type'],
+                        'source.name':
+                        config.crits.default_source,
+                    })
                 if not whois_indicator:
+                    bucket_list = ['whois pivoting', 'pt:found']
+                    for t in args.tags:
+                        bucket_list.append(t)
                     whois_indicator = crits.add_indicator(
-                        source = config.crits.default_source,
-                        reference = reference,
-                        method = 'pt_query.py',
-                        bucket_list = 'whois pivoting,pt:found',
-                        indicator_confidence = confidence,
-                        indicator_impact = impact,
-                        type = ind['type'],
-                        value = ind['value'],
-                        description = 'Discovered through PT whois pivots'
+                        value=ind['value'],
+                        itype=ind['type'],
+                        source=config.crits.default_source,
+                        reference=reference,
+                        method='pt_query.py',
+                        bucket_list=bucket_list,
+                        indicator_confidence=confidence,
+                        indicator_impact=impact,
+                        description='Discovered through PT whois pivots'
                     )
 
-                # This is pretty hacky - Since we use both the raw DB and the API, we might
-                # receive either an '_id' or an 'id' back. For now I'm just replicating
-                # the value. TODO: Find a better fix?
+                # This is pretty hacky - Since we use both the raw DB and the
+                # API, we might receive either an '_id' or an 'id' back. We
+                # are going to standardize on 'id', rather than '_id'
                 if 'id' not in whois_indicator:
+                    if '_id' not in whois_indicator:
+                        print(repr(whois_indicator))
+                        raise SystemExit('id and _id not found for query: '
+                                         '{} in whois indicator'.format(query))
                     whois_indicator['id'] = whois_indicator['_id']
-                if '_id' not in whois_indicator:
-                    whois_indicator['_id'] = whois_indicator['id']
 
-                # The CRITs API allows us to add a campaign to the indicator, but
-                # not multiple campaigns at one time,
+                # Not a huge deal, but make sure we don't waste time adding
+                # a relationship to itself
+                if whois_indicator['id'] == new_ind['id']:
+                    continue
+                # The CRITs API allows us to add a campaign to the indicator,
+                # but not multiple campaigns at one time,
                 # so we will do it directly with the DB.
                 # We want to replicate the campaigns of the WHOIS indicator (if
                 # a campaign exists) to the new indicator.
@@ -412,17 +451,22 @@ for result in results['results']:
                             campaign['description']
                         )
 
-                # If the new indicator and the indicator are not related, relate them.
-                if not crits.has_relationship(whois_indicator['_id'], 'Indicator',
-                                              new_ind['id'], 'Indicator',
+                # If the new indicator and the indicator are not related,
+                # relate them.
+                if not crits.has_relationship(whois_indicator['id'],
+                                              'Indicator',
+                                              new_ind['id'],
+                                              'Indicator',
                                               rel_type='Registered'):
-                    crits.forge_relationship(whois_indicator['_id'], 'Indicator',
-                                             new_ind['id'], 'Indicator',
+                    crits.forge_relationship(whois_indicator['id'],
+                                             'Indicator',
+                                             new_ind['id'],
+                                             'Indicator',
                                              rel_type='Registered')
 
 # Add a bucket_list item to track that we searched for this whois indicator
 if args.crits:
-    crits_mongo.add_bucket_list_item(indicator['_id'], 'indicators',
+    crits_mongo.add_bucket_list_item(indicator['id'], 'indicators',
                                      'pt:whois_search_completed')
 
 # SORT BY DATE
@@ -430,6 +474,6 @@ formatted_results = sorted(formatted_results, key=itemgetter(3), reverse=True)
 # Row contains:
 # Domain, Registrant Email, Registrant Name, Registrant Date,
 # Expiration Date, Tags
-headers = [ 'Domain', 'Registrant Email', 'Registrant Name', 'Registrant Date',
-           'Expiration Date', 'Tags' ]
+headers = ['Domain', 'Registrant Email', 'Registrant Name', 'Registrant Date',
+           'Expiration Date', 'Tags']
 print(tabulate.tabulate(formatted_results, headers))

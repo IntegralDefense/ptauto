@@ -4,6 +4,10 @@ ptauto is a collection of scripts for querying PassiveTotal and providing some l
 
 This is meant to run on a Linux server (we use Ubuntu)
 
+Updating and Versioning
+-----------------------
+Versioning has been added to track project changes. Any changes necessary by the end user will end up in the  UPDATING file.
+
 Configuration
 -------------
 1. Copy logging.ini and pt.ini from etc/ into etc/local/. Edit both files in etc/local/ to use your settings.
@@ -61,7 +65,7 @@ pt_query.py is simple to use.
 usage: pt_query.py [-h] [--dev] [--crits] [--test] [-f] [-n | -a] QUERY
 
 positional arguments:
-  QUERY       A value to send as a query to PT. Email, phone, name, etc.
+  QUERY       A value to send as a query to PT. Email, phone, name, domain, etc.
 
 optional arguments:
   -h, --help  show this help message and exit
@@ -85,7 +89,7 @@ coldycold.com            loltest@gmail.com   test name          2014-09-14      
 itsfreezinghere.net      loltest@gmail.com   icecube ltd        2014-07-11         2015-07-11
 ```
 
-Searching the email address returns several other domains registered by the same email address. 
+Searching the email address returns several other domains registered by the same email address.
 
 ### -a flag
 Searches PT for the query as an address in the WHOIS information.

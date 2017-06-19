@@ -9,6 +9,7 @@ from requests.auth import HTTPBasicAuth
 
 log = logging.getLogger()
 
+
 class PTAPI():
     def __init__(self, username='', apikey=''):
         self.username = username
@@ -17,8 +18,8 @@ class PTAPI():
 
     def set_proxy(self, http='', https=''):
         self.proxies = {
-            'http' : http,
-            'https' : https
+            'http': http,
+            'https': https
         }
 
     def whois_search(self, query='', field=''):
@@ -34,7 +35,7 @@ class PTAPI():
         """
         log.debug('Permforming WHOIS search with query: {0} and field: '
                   '{1}'.format(query, field))
-        params = { 'query' : query, 'field' : field }
+        params = {'query': query, 'field': field}
         r = requests.get('https://api.passivetotal.org/v2/whois/search',
                          auth=HTTPBasicAuth(self.username, self.apikey),
                          proxies=self.proxies, params=params)

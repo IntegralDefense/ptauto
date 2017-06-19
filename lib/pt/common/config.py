@@ -7,6 +7,7 @@ from lib.pt.common.objects import Dictionary
 
 log = logging.getLogger()
 
+
 class Config:
     """Configuration file parser."""
 
@@ -21,8 +22,10 @@ class Config:
             log.debug('Reading config: {}'.format(cfg))
             config.read(cfg)
         else:
-            log.debug('Reading config: {}'.format(os.path.join(PT_HOME, "etc", "local", "%s.ini" % file_name)))
-            config.read(os.path.join(PT_HOME, "etc", "local", "%s.ini" % file_name))
+            log.debug('Reading config: {}'.format(
+                os.path.join(PT_HOME, "etc", "local", "%s.ini" % file_name)))
+            config.read(os.path.join(
+                PT_HOME, "etc", "local", "%s.ini" % file_name))
 
         self.fullconfig = config._sections
 
@@ -45,7 +48,6 @@ class Config:
                         value = config.get(section, name)
 
                 setattr(getattr(self, section), name, value)
-
 
     def get(self, section):
         """Get option.
