@@ -84,7 +84,7 @@ args = argparser.parse_args()
 # Load patterns for regexes
 pattern_config = ConfigParser()
 patterns = {}
-with open('etc/patterns.ini') as fp:
+with open(os.path.join(PT_HOME, 'etc', 'patterns.ini')) as fp:
     pattern_config.readfp(fp)
 
 email_address_pattern = re.compile(pattern_config.get('email', 'pattern'))
