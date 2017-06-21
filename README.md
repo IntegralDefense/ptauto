@@ -2,7 +2,7 @@ PassiveTotal Automation
 -----------------------
 ptauto is a collection of scripts for querying PassiveTotal and providing some level of automation. If you have a CRITs installation, it can automatically add queried indicators and relate them to the original indicator queried. Currently, only pt_query.py is included, which is a tool for querying PT and retrieving WHOIS results.
 
-This is meant to run on a Linux server (we use Ubuntu)
+This is meant to run on a Linux server (we use Ubuntu).
 
 Updating and Versioning
 -----------------------
@@ -23,13 +23,6 @@ The CRITs project can be found here: https://github.com/crits/crits/
 This is intended to work with the latest version of stable_4.
 
 The CRITs API must be available. The CRITs mongo database must be available.
-
-*Important*: CRITs doesn't contain a specific indicator type for tracking WHOIS email addresses out of the box. One option is to add these email addresses as EMAIL_ADDRESS types, then find some other way to mark them as a WHOIS registrant (Add an Action; add a bucket list item). Internally, we've added a new type "WHOIS_EMAIL" to our CRITs indicators.py vocabulary file. Either way, this script needs to know which type to use when creating a WHOIS registrant email indicator. Edit your etc/local/pt.ini file in the [crits] section.
-
-Assuming you want to use the EMAIL_ADDRESS type:
-```
-whois_email_type = EMAIL_ADDRESS
-```
 
 In the future, there might be additional functionality for adding an Action or bucket_list item (or even do something more complicated by including your own custom python script), but this is not present currently.
 
@@ -100,6 +93,17 @@ Searches PT for the query as a registrant name in the WHOIS information.
 ### -t flag
 Adds a custom tag (bucket list item) to the data added to CRITs
 
+### -c flag
+Assign a campaign to each indicator as it is added to CRITs. Only used if --crits is used.
+
+### --cc flag
+Assign a campaign confidence for the given campaign. Only used if -c is used. Must be high/medium/low.
+
+Example assigning the Arid Viper campaign to a domain and related WHOIS information found in PT:
+```
+$ bin/pt_query.py --crits -c "Arid Viper" --cc medium mediahitech.com
+```
+
 ### --crits flag
 The --crits flag automatically uploads resulting data to CRITs and relates it properly. In the case above, loltest[@]gmail.com would be uploaded as a WHOIS indicator, and the resulting domains would be uploaded as domain indicators. Relationships would then be created between the domains and the WHOIS indicator. If the WHOIS indicator is already found in CRITs, some additional information will be added to the new domains, such as campaigns and confidence/impact.
 
@@ -111,3 +115,15 @@ Some test data is provided for both email and telephone searches. This will allo
 
 ### Caching (-f option)
 Results are cached by default from PT, and you must supply the -f option to obtain new results.
+
+## Recommended Workflow
+pt_query has the potential to return a ton of domains. You may not want all of these in CRITs. Because of this, it is a good idea to run pt_query once without the --crits flag to see what comes back. If you are satisfied with the result, you can then re-run the command with the --crits flag. Because it uses cached results, it won't waste time reaching out the PT and wasting an API call.
+
+### Campaigns
+If a campaign is already assigned to the initial search query you give pt_query, it will inherent that campaign for all the associated indicators. For example, if you already have the whois email address "lolfake@bad.com" in CRITs, and it has the campaign "BadNews" assigned to it, you can do the following:
+
+```
+pt_query --crits lolfake@bad.com
+```
+
+Any results from PT that are added to CRITs will then be tagged with the campaign "BadNews" with the same confidence that was already assigned to "lolfake@bad.com".
